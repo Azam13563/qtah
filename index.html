@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>نظام إدارة القطات</title>
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <style>
         :root {
             --accent: #FFD700;
@@ -48,7 +47,7 @@
         <div class="auth-card" id="login-form">
             <div class="logo-area">القطّة</div>
             <p class="auth-subtitle">سجل دخولك أو أنشئ حساباً جديداً</p>
-            <input type="text" id="username" class="input-field" placeholder="Username (e.g. hmed)" dir="ltr">
+            <input type="text" id="username" class="input-field" placeholder="Username (English)" dir="ltr">
             <input type="password" id="password" class="input-field" placeholder="Password" dir="ltr">
             <button id="login-btn" class="btn-action btn-primary">دخول</button>
             <div id="login-error" class="error-msg"></div>
@@ -78,7 +77,7 @@
         <div id="view-history"><div id="logs-list"></div></div>
         <div id="view-members" class="hidden">
             <div class="card">
-                <input type="text" id="member-name-input" class="input-field" style="text-align:right;" placeholder="اسم العضو (مثلاً: أحمد)">
+                <input type="text" id="member-name-input" class="input-field" style="text-align:right;" placeholder="اسم العضو الجديد">
                 <button id="add-member-btn" class="btn-action btn-primary" style="padding:12px;">إضافة عضو للقروب</button>
             </div>
             <div id="members-list"></div>
@@ -101,15 +100,15 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, onSnapshot, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, updateDoc, collection, addDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // استخدام بياناتك التي قدمتها لضمان العمل على GitHub مباشرة
+        // استخدام الإعدادات التي قدمتها لضمان العمل مباشرة
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'my-qattah-app';
 
         let user = null;
         let members = [];
