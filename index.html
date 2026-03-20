@@ -231,7 +231,7 @@
     <div id="auth-screen" class="auth-overlay">
         <div class="auth-card" id="login-form">
             <div class="logo-area">القطّة</div>
-            <p class="auth-subtitle">أدخل اسم المستخدم بالإنجليزية والرمز</p>
+            <p class="auth-subtitle">أدخل اسم المستخدم والرمز</p>
             
             <div class="input-group">
                 <span class="input-label">Username (English)</span>
@@ -323,11 +323,35 @@
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
+        // حاوية الإعدادات لضمان العمل على GitHub أو أي مكان آخر
+        let config = {};
+        let currentAppId = 'default-app-id';
+
+        try {
+            // محاولة جلب الإعدادات من البيئة المحلية (Canvas)
+            if (typeof __firebase_config !== 'undefined') {
+                config = JSON.parse(__firebase_config);
+                currentAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            } else {
+                // إذا لم تكن موجودة (مثل GitHub)، ابحث عن قيم افتراضية أو اطلبها
+                console.warn("تنبيه: لم يتم العثور على إعدادات Firebase التلقائية. تأكد من إضافتها يدوياً للعمل خارج Canvas.");
+                // ملاحظة للمستخدم: يمكنك وضع إعداداتك يدوياً هنا للتشغيل على GitHub
+                config = {
+                    apiKey: "YOUR_API_KEY",
+                    authDomain: "YOUR_PROJECT.firebaseapp.com",
+                    projectId: "YOUR_PROJECT_ID",
+                    storageBucket: "YOUR_PROJECT.appspot.com",
+                    messagingSenderId: "YOUR_ID",
+                    appId: "YOUR_APP_ID"
+                };
+            }
+        } catch (e) {
+            console.error("خطأ في تحميل الإعدادات:", e);
+        }
+
+        const app = initializeApp(config);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         let user = null;
         let members = [];
@@ -355,15 +379,16 @@
 
         const startSync = () => {
             if (!user) return;
-            unsubFriends = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'friends'), (s) => {
+            // استخدام currentAppId لضمان الربط بنفس قاعدة البيانات
+            unsubFriends = onSnapshot(collection(db, 'artifacts', currentAppId, 'users', user.uid, 'friends'), (s) => {
                 members = s.docs.map(d => ({ id: d.id, ...d.data() }));
                 renderMembers();
-            }, (err) => console.error("Firestore Error (Friends):", err));
+            }, (err) => console.error("خطأ في جلب الأعضاء:", err));
 
-            unsubLogs = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'logs'), (s) => {
+            unsubLogs = onSnapshot(collection(db, 'artifacts', currentAppId, 'users', user.uid, 'logs'), (s) => {
                 logs = s.docs.map(d => ({ id: d.id, ...d.data() }));
                 renderLogs();
-            }, (err) => console.error("Firestore Error (Logs):", err));
+            }, (err) => console.error("خطأ في جلب السجلات:", err));
         };
 
         window.toggleAuth = (mode) => {
@@ -388,7 +413,7 @@
                 await signInWithEmailAndPassword(auth, usernameToEmail(u), p);
             } catch(err) {
                 console.error(err);
-                alert("اسم المستخدم أو الرمز خطأ. تأكد من إدخال البيانات بشكل صحيح.");
+                alert("اسم المستخدم أو الرمز خطأ.");
             } finally {
                 document.getElementById('login-loader').style.display = 'none';
             }
@@ -408,7 +433,7 @@
                 await createUserWithEmailAndPassword(auth, usernameToEmail(u), p);
             } catch(err) {
                 console.error(err);
-                alert("خطأ: قد يكون اسم المستخدم محجوزاً بالفعل.");
+                alert("خطأ: قد يكون اسم المستخدم محجوزاً.");
             } finally {
                 document.getElementById('signup-loader').style.display = 'none';
             }
@@ -419,13 +444,13 @@
         document.getElementById('add-member-btn').onclick = async () => {
             const name = document.getElementById('member-name-input').value.trim();
             if (!name || !user) return;
-            await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'friends'), { name });
+            await addDoc(collection(db, 'artifacts', currentAppId, 'users', user.uid, 'friends'), { name });
             document.getElementById('member-name-input').value = '';
         };
 
         window.deleteMember = async (id) => {
             if(!user) return;
-            await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'friends', id));
+            await deleteDoc(doc(db, 'artifacts', currentAppId, 'users', user.uid, 'friends', id));
         };
 
         window.openGattahModal = () => {
@@ -450,7 +475,7 @@
             const selected = Array.from(document.querySelectorAll('.m-check:checked')).map(c => c.value);
             if (!total || selected.length === 0 || !user) return;
 
-            await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'logs'), {
+            await addDoc(collection(db, 'artifacts', currentAppId, 'users', user.uid, 'logs'), {
                 total,
                 perPerson: total / selected.length,
                 date: new Date().toLocaleDateString('ar-SA'),
@@ -465,14 +490,14 @@
             if(!user) return;
             const log = logs.find(l => l.id === logId);
             log.participants[pIdx].paid = !log.participants[pIdx].paid;
-            await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'logs', logId), {
+            await updateDoc(doc(db, 'artifacts', currentAppId, 'users', user.uid, 'logs', logId), {
                 participants: log.participants
             });
         };
 
         window.deleteLog = async (id) => {
             if(confirm("حذف العملية؟") && user) {
-                await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'logs', id));
+                await deleteDoc(doc(db, 'artifacts', currentAppId, 'users', user.uid, 'logs', id));
             }
         };
 
