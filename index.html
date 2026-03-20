@@ -5,11 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>نظام إدارة القطات</title>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js" type="module"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js" type="module"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js" type="module"></script>
-
+    
     <style>
         :root {
             --accent: #FFD700;
@@ -97,7 +93,7 @@
             font-size: 16px;
             outline: none;
             transition: border 0.3s;
-            text-align: left; /* English input */
+            text-align: left; 
         }
 
         .input-field:focus {
@@ -233,10 +229,9 @@
 
     <!-- Auth Screen -->
     <div id="auth-screen" class="auth-overlay">
-        <!-- Login Form -->
         <div class="auth-card" id="login-form">
             <div class="logo-area">القطّة</div>
-            <p class="auth-subtitle">أدخل اسم المستخدم والرمز</p>
+            <p class="auth-subtitle">أدخل اسم المستخدم بالإنجليزية والرمز</p>
             
             <div class="input-group">
                 <span class="input-label">Username (English)</span>
@@ -254,7 +249,6 @@
             <button onclick="toggleAuth('signup')" class="btn-action btn-secondary">إنشاء مستخدم جديد</button>
         </div>
 
-        <!-- Signup Form -->
         <div class="auth-card hidden" id="signup-form">
             <div class="logo-area">مستخدم جديد</div>
             <p class="auth-subtitle">اختر اسم مستخدم بالإنجليزية</p>
@@ -304,12 +298,10 @@
         </div>
     </div>
 
-    <!-- Dock -->
     <div id="dock" class="dock">
         <button class="add-btn" onclick="openGattahModal()">قطة جديدة +</button>
     </div>
 
-    <!-- Modal -->
     <div id="gattah-modal" class="modal">
         <div class="modal-box">
             <h3 style="text-align:center; margin-bottom:20px;">حساب قطة</h3>
@@ -328,7 +320,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = JSON.parse(__firebase_config);
@@ -340,8 +332,9 @@
         let user = null;
         let members = [];
         let logs = [];
+        let unsubFriends = null;
+        let unsubLogs = null;
 
-        // Helper: Convert username to internal email format
         const usernameToEmail = (userStr) => `${userStr.toLowerCase().trim()}@qattah.local`;
 
         onAuthStateChanged(auth, (u) => {
@@ -352,11 +345,26 @@
                 document.getElementById('dock').style.display = 'block';
                 startSync();
             } else {
+                if (unsubFriends) unsubFriends();
+                if (unsubLogs) unsubLogs();
                 document.getElementById('auth-screen').classList.remove('hidden');
                 document.getElementById('app-root').style.display = 'none';
                 document.getElementById('dock').style.display = 'none';
             }
         });
+
+        const startSync = () => {
+            if (!user) return;
+            unsubFriends = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'friends'), (s) => {
+                members = s.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderMembers();
+            }, (err) => console.error("Firestore Error (Friends):", err));
+
+            unsubLogs = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'logs'), (s) => {
+                logs = s.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderLogs();
+            }, (err) => console.error("Firestore Error (Logs):", err));
+        };
 
         window.toggleAuth = (mode) => {
             document.getElementById('login-form').classList.toggle('hidden', mode === 'signup');
@@ -370,48 +378,37 @@
             document.getElementById('tab-members').classList.toggle('active', tab === 'members');
         };
 
-        const startSync = () => {
-            if (!user) return;
-            onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'friends'), (s) => {
-                members = s.docs.map(d => ({ id: d.id, ...d.data() }));
-                renderMembers();
-            }, (err) => console.error(err));
-
-            onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'logs'), (s) => {
-                logs = s.docs.map(d => ({ id: d.id, ...d.data() }));
-                renderLogs();
-            }, (err) => console.error(err));
-        };
-
-        // Login Logic
         document.getElementById('login-btn').onclick = async () => {
             const u = document.getElementById('username').value;
             const p = document.getElementById('password').value;
-            if(!u || !p) return alert("يرجى إدخال اسم المستخدم والرمز");
+            if(!u || !p) return;
             
             document.getElementById('login-loader').style.display = 'block';
             try {
                 await signInWithEmailAndPassword(auth, usernameToEmail(u), p);
             } catch(err) {
-                alert("اسم المستخدم أو الرمز خطأ");
+                console.error(err);
+                alert("اسم المستخدم أو الرمز خطأ. تأكد من إدخال البيانات بشكل صحيح.");
             } finally {
                 document.getElementById('login-loader').style.display = 'none';
             }
         };
 
-        // Signup Logic
         document.getElementById('signup-btn').onclick = async () => {
             const u = document.getElementById('s-username').value;
             const p = document.getElementById('s-password').value;
             
-            if(!u || p.length < 6) return alert("اسم المستخدم مطلوب والرمز يجب أن يكون 6 خانات أو أكثر");
-            if(!/^[a-zA-Z0-9_]+$/.test(u)) return alert("اسم المستخدم يجب أن يكون بالإنجليزية فقط (حروف وأرقام)");
+            if(!u || p.length < 6) {
+                alert("اسم المستخدم مطلوب والرمز 6 خانات فأكثر");
+                return;
+            }
 
             document.getElementById('signup-loader').style.display = 'block';
             try {
                 await createUserWithEmailAndPassword(auth, usernameToEmail(u), p);
             } catch(err) {
-                alert("اسم المستخدم هذا قد يكون محجوزاً أو هناك خطأ في الاتصال");
+                console.error(err);
+                alert("خطأ: قد يكون اسم المستخدم محجوزاً بالفعل.");
             } finally {
                 document.getElementById('signup-loader').style.display = 'none';
             }
@@ -419,7 +416,6 @@
 
         document.getElementById('logout-btn').onclick = () => signOut(auth);
 
-        // Core App Logic
         document.getElementById('add-member-btn').onclick = async () => {
             const name = document.getElementById('member-name-input').value.trim();
             if (!name || !user) return;
@@ -433,7 +429,10 @@
         };
 
         window.openGattahModal = () => {
-            if(members.length === 0) return alert("أضف أعضاء القروب أولاً");
+            if(members.length === 0) {
+                alert("أضف أعضاء القروب أولاً من تبويب (الأعضاء)");
+                return;
+            }
             const box = document.getElementById('modal-members-check');
             box.innerHTML = members.map(m => `
                 <div style="display:flex; justify-content:space-between; padding:12px; background:var(--glass); margin-bottom:8px; border-radius:12px;">
@@ -490,7 +489,7 @@
         const renderLogs = () => {
             const list = document.getElementById('logs-list');
             if (logs.length === 0) {
-                list.innerHTML = `<p style="text-align:center; padding:60px; opacity:0.3;">لا توجد عمليات</p>`;
+                list.innerHTML = `<p style="text-align:center; padding:60px; opacity:0.3;">لا توجد عمليات مسجلة</p>`;
                 return;
             }
             const sorted = [...logs].sort((a,b) => b.timestamp - a.timestamp);
