@@ -223,6 +223,15 @@
         }
 
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .error-msg {
+            color: var(--danger);
+            font-size: 13px;
+            text-align: center;
+            margin-top: 10px;
+            font-weight: 600;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -231,31 +240,32 @@
     <div id="auth-screen" class="auth-overlay">
         <div class="auth-card" id="login-form">
             <div class="logo-area">القطّة</div>
-            <p class="auth-subtitle">أدخل اسم المستخدم والرمز</p>
+            <p class="auth-subtitle">سجل دخولك لمتابعة الحسابات</p>
             
             <div class="input-group">
-                <span class="input-label">Username (English)</span>
-                <input type="text" id="username" class="input-field" placeholder="Enter username" dir="ltr">
+                <span class="input-label">Username / اسم المستخدم</span>
+                <input type="text" id="username" class="input-field" placeholder="User123" dir="ltr">
             </div>
             
             <div class="input-group">
-                <span class="input-label">Password</span>
+                <span class="input-label">Password / الرمز</span>
                 <input type="password" id="password" class="input-field" placeholder="••••••••" dir="ltr">
             </div>
 
-            <button id="login-btn" class="btn-action btn-primary">تسجيل الدخول</button>
+            <button id="login-btn" class="btn-action btn-primary">دخول</button>
             <div id="login-loader" class="loading-spinner"></div>
+            <div id="login-error" class="error-msg"></div>
             
-            <button onclick="toggleAuth('signup')" class="btn-action btn-secondary">إنشاء مستخدم جديد</button>
+            <button onclick="toggleAuth('signup')" class="btn-action btn-secondary">مستخدم جديد؟ سجل هنا</button>
         </div>
 
         <div class="auth-card hidden" id="signup-form">
-            <div class="logo-area">مستخدم جديد</div>
-            <p class="auth-subtitle">اختر اسم مستخدم بالإنجليزية</p>
+            <div class="logo-area">حساب جديد</div>
+            <p class="auth-subtitle">يمكنك استخدام اسم من 4 حروف فأكثر</p>
             
             <div class="input-group">
                 <span class="input-label">Username (English only)</span>
-                <input type="text" id="s-username" class="input-field" placeholder="e.g. user123" dir="ltr">
+                <input type="text" id="s-username" class="input-field" placeholder="Azam" dir="ltr">
             </div>
             
             <div class="input-group">
@@ -263,10 +273,11 @@
                 <input type="password" id="s-password" class="input-field" placeholder="••••••••" dir="ltr">
             </div>
 
-            <button id="signup-btn" class="btn-action btn-primary">تأكيد التسجيل</button>
+            <button id="signup-btn" class="btn-action btn-primary">تأكيد الحساب</button>
             <div id="signup-loader" class="loading-spinner"></div>
+            <div id="signup-error" class="error-msg"></div>
             
-            <button onclick="toggleAuth('login')" class="btn-action btn-secondary">لديك حساب؟ ادخل هنا</button>
+            <button onclick="toggleAuth('login')" class="btn-action btn-secondary">عندك حساب؟ ارجع للدخول</button>
         </div>
     </div>
 
@@ -323,31 +334,26 @@
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // حاوية الإعدادات لضمان العمل على GitHub أو أي مكان آخر
-        let config = {};
+        // --- Firebase Configuration ---
+        // ملاحظة لـ GitHub: انسخ إعدادات مشروعك هنا لكي يعمل التطبيق في أي مكان
+        let config = {
+            apiKey: "",
+            authDomain: "",
+            projectId: "",
+            storageBucket: "",
+            messagingSenderId: "",
+            appId: ""
+        };
+        
         let currentAppId = 'default-app-id';
 
+        // محاولة جلب الإعدادات من بيئة التشغيل الحالية تلقائياً
         try {
-            // محاولة جلب الإعدادات من البيئة المحلية (Canvas)
             if (typeof __firebase_config !== 'undefined') {
                 config = JSON.parse(__firebase_config);
                 currentAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-            } else {
-                // إذا لم تكن موجودة (مثل GitHub)، ابحث عن قيم افتراضية أو اطلبها
-                console.warn("تنبيه: لم يتم العثور على إعدادات Firebase التلقائية. تأكد من إضافتها يدوياً للعمل خارج Canvas.");
-                // ملاحظة للمستخدم: يمكنك وضع إعداداتك يدوياً هنا للتشغيل على GitHub
-                config = {
-                    apiKey: "YOUR_API_KEY",
-                    authDomain: "YOUR_PROJECT.firebaseapp.com",
-                    projectId: "YOUR_PROJECT_ID",
-                    storageBucket: "YOUR_PROJECT.appspot.com",
-                    messagingSenderId: "YOUR_ID",
-                    appId: "YOUR_APP_ID"
-                };
             }
-        } catch (e) {
-            console.error("خطأ في تحميل الإعدادات:", e);
-        }
+        } catch (e) { console.warn("Fallback to manual config"); }
 
         const app = initializeApp(config);
         const auth = getAuth(app);
@@ -379,21 +385,22 @@
 
         const startSync = () => {
             if (!user) return;
-            // استخدام currentAppId لضمان الربط بنفس قاعدة البيانات
             unsubFriends = onSnapshot(collection(db, 'artifacts', currentAppId, 'users', user.uid, 'friends'), (s) => {
                 members = s.docs.map(d => ({ id: d.id, ...d.data() }));
                 renderMembers();
-            }, (err) => console.error("خطأ في جلب الأعضاء:", err));
+            }, (err) => console.error("Error fetching friends:", err));
 
             unsubLogs = onSnapshot(collection(db, 'artifacts', currentAppId, 'users', user.uid, 'logs'), (s) => {
                 logs = s.docs.map(d => ({ id: d.id, ...d.data() }));
                 renderLogs();
-            }, (err) => console.error("خطأ في جلب السجلات:", err));
+            }, (err) => console.error("Error fetching logs:", err));
         };
 
         window.toggleAuth = (mode) => {
             document.getElementById('login-form').classList.toggle('hidden', mode === 'signup');
             document.getElementById('signup-form').classList.toggle('hidden', mode === 'login');
+            document.getElementById('login-error').style.display = 'none';
+            document.getElementById('signup-error').style.display = 'none';
         };
 
         window.switchTab = (tab) => {
@@ -403,28 +410,43 @@
             document.getElementById('tab-members').classList.toggle('active', tab === 'members');
         };
 
+        // --- Login Logic ---
         document.getElementById('login-btn').onclick = async () => {
-            const u = document.getElementById('username').value;
+            const u = document.getElementById('username').value.trim();
             const p = document.getElementById('password').value;
+            const errBox = document.getElementById('login-error');
+            errBox.style.display = 'none';
+
             if(!u || !p) return;
             
             document.getElementById('login-loader').style.display = 'block';
             try {
                 await signInWithEmailAndPassword(auth, usernameToEmail(u), p);
             } catch(err) {
-                console.error(err);
-                alert("اسم المستخدم أو الرمز خطأ.");
+                errBox.innerText = "اسم المستخدم أو كلمة المرور غير صحيحة.";
+                errBox.style.display = 'block';
             } finally {
                 document.getElementById('login-loader').style.display = 'none';
             }
         };
 
+        // --- Signup Logic ---
         document.getElementById('signup-btn').onclick = async () => {
-            const u = document.getElementById('s-username').value;
+            const u = document.getElementById('s-username').value.trim();
             const p = document.getElementById('s-password').value;
+            const errBox = document.getElementById('signup-error');
+            errBox.style.display = 'none';
             
-            if(!u || p.length < 6) {
-                alert("اسم المستخدم مطلوب والرمز 6 خانات فأكثر");
+            // التحقق من طول الاسم (أكثر من 3 حروف)
+            if(u.length < 4) {
+                errBox.innerText = "اسم المستخدم يجب أن يكون 4 حروف فأكثر";
+                errBox.style.display = 'block';
+                return;
+            }
+
+            if(p.length < 6) {
+                errBox.innerText = "كلمة المرور يجب أن تكون 6 خانات فأكثر";
+                errBox.style.display = 'block';
                 return;
             }
 
@@ -432,8 +454,12 @@
             try {
                 await createUserWithEmailAndPassword(auth, usernameToEmail(u), p);
             } catch(err) {
-                console.error(err);
-                alert("خطأ: قد يكون اسم المستخدم محجوزاً.");
+                if (err.code === 'auth/email-already-in-use') {
+                    errBox.innerText = "هذا الاسم محجوز، جرب اسماً آخر أو ادخل بحسابك.";
+                } else {
+                    errBox.innerText = "حدث خطأ غير متوقع، جرب اسماً آخر.";
+                }
+                errBox.style.display = 'block';
             } finally {
                 document.getElementById('signup-loader').style.display = 'none';
             }
