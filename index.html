@@ -98,27 +98,25 @@
         </div>
     </div>
 
+    <!-- تم تصحيح الروابط لتعمل بشكل مثالي ومباشر -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, updateDoc, collection, addDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-fire-store.js";
-        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
+        import { getFirestore, doc, updateDoc, collection, addDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // إعداداتك الحقيقية تم دمجها هنا
+        // إعداداتك الخاصة (بدون أي متغيرات وهمية)
         const firebaseConfig = {
             apiKey: "AIzaSyCz9WFBe0Wpvwxj2i9tjn2Sv9b2BFgrkV0",
             authDomain: "testlogin2-ff086.firebaseapp.com",
             projectId: "testlogin2-ff086",
             storageBucket: "testlogin2-ff086.firebasestorage.app",
             messagingSenderId: "388261231780",
-            appId: "1:388261231780:web:8cd3dd9de874b64fccba31",
-            measurementId: "G-P2CELEBCSZ"
+            appId: "1:388261231780:web:8cd3dd9de874b64fccba31"
         };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        if (firebaseConfig.measurementId) getAnalytics(app);
 
         let user = null;
         let members = [];
@@ -143,10 +141,15 @@
             onSnapshot(collection(db, 'users_data', user.uid, 'friends'), (s) => {
                 members = s.docs.map(d => ({ id: d.id, ...d.data() }));
                 renderMembers();
+            }, (error) => {
+                console.error("خطأ في جلب الأعضاء:", error);
             });
+
             onSnapshot(collection(db, 'users_data', user.uid, 'logs'), (s) => {
                 logs = s.docs.map(d => ({ id: d.id, ...d.data() }));
                 renderLogs();
+            }, (error) => {
+                console.error("خطأ في جلب العمليات:", error);
             });
         };
 
